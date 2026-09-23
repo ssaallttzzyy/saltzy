@@ -55,7 +55,21 @@
           <div class="game-card-body">
             <h2 class="game-card-title">Slope</h2>
             <p class="game-card-desc">Slide down a slope and see how far you can make it!</p>
-            <button class="btn btn-primary btn-block" id="play-slope-btn">Play Slope</button>
+            <button class="btn btn-primary btn-block play-game-btn" data-entry="play-slope.html" data-label="Slope">Play Slope</button>
+          </div>
+        </div>
+        <div class="game-card glass">
+          <div class="game-thumb">
+            <svg viewBox="0 0 400 150" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="400" height="150" fill="#0C355E"/>
+              <circle cx="130" cy="75" r="36" fill="#124879" opacity="0.9"/>
+              <circle cx="270" cy="75" r="36" fill="#6FE3FF" opacity="0.55"/>
+            </svg>
+          </div>
+          <div class="game-card-body">
+            <h2 class="game-card-title">PolyTrack</h2>
+            <p class="game-card-desc">PolyTrack is a racing game where you can choose different tracks to race down and try to beat your high score &mdash; honestly i find it as a pretty addicting game.</p>
+            <button class="btn btn-primary btn-block play-game-btn" data-entry="play-newgame.html" data-label="New Game">Play PolyTrack</button>
           </div>
         </div>
       </div>
@@ -70,12 +84,12 @@
       </div>
 
       <div class="stage-frame" id="stage-frame">
-        <div id="gameContainer"></div>
+        <div id="gameFrameHolder"></div>
 
         <div class="unity-splash hidden" id="unity-splash">
           <img src="assets/img/salt-shaker.svg" class="splash-logo" alt="">
           <div class="splash-bar-track"><div class="splash-bar-fill" id="splash-fill"></div></div>
-          <div class="splash-label" id="splash-label">Loading Slope&hellip;</div>
+          <div class="splash-label" id="splash-label">Loading&hellip;</div>
         </div>
 
         <button class="fullscreen-btn" id="fullscreen-btn" title="Fullscreen" aria-label="Fullscreen">
@@ -149,7 +163,6 @@
 </div>
 
 <!-- ===================== SCRIPTS ===================== -->
-<script src="assets/js/unity-loader.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>
