@@ -30,12 +30,22 @@ const views = {
   updates: document.getElementById("view-updates")
 };
 
+let currentTab = "games"; // tracks which tab was open, so we can detect *leaving* Games
+
 function activateTab(name) {
+  // Leaving Games while a round is open? Tear the game down first so it
+  // stops capturing keyboard input (that's what was blocking chat typing).
+  if (currentTab === "games" && name !== "games" && stageView.classList.contains("active")) {
+    stopGame();
+  }
+  currentTab = name;
+
   tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
   Object.entries(views).forEach(([key, el]) => el.classList.toggle("active", key === name));
 
   if (name === "chat") {
     onChatTabOpened();
+    setTimeout(() => chatInput.focus(), 50); // belt-and-suspenders: reclaim focus
   }
 }
 
@@ -61,11 +71,12 @@ let gameLoaded = false;
 function openGame() {
   gameGridView.style.display = "none";
   stageView.classList.add("active");
+
+  if (gameLoaded) return; // already instantiated once — just re-show
+
   splash.classList.remove("hidden");
   splashFill.style.width = "0%";
   splashLabel.textContent = "Loading Slope\u2026";
-
-  if (gameLoaded) return; // already instantiated once — just re-show
 
   gameInstance = UnityLoader.instantiate("gameContainer", "Build/slope.json", {
     onProgress: function (instance, progress) {
@@ -86,13 +97,41 @@ function openGame() {
   gameLoaded = true;
 }
 
-function closeGame() {
+// Fully tears the game down — used by Back to Games AND by activateTab()
+// whenever someone switches to Chat/Updates while a round is still open.
+// A full teardown (rather than just hiding the stage) is what actually
+// fixes "can't type in chat after playing": Unity WebGL builds usually
+// grab keyboard focus globally so arrow keys/space work without clicking
+// the canvas first, and that capture doesn't reliably release on its own —
+// so we explicitly blur, ask Unity to quit/pause, and clear the container
+// so the next Play does a clean reinstantiate.
+function stopGame() {
   stageView.classList.remove("active");
   gameGridView.style.display = "";
+
+  if (document.activeElement && document.activeElement.blur) {
+    document.activeElement.blur();
+  }
+
+  if (gameInstance) {
+    try {
+      if (typeof gameInstance.Quit === "function") {
+        gameInstance.Quit(); // standard Unity WebGL teardown, if unity-loader.js exposes it
+      } else if (gameInstance.Module && typeof gameInstance.Module.pause === "function") {
+        gameInstance.Module.pause();
+      }
+    } catch (err) {
+      console.warn("Saltzy: couldn't cleanly stop the game instance", err);
+    }
+    gameInstance = null;
+  }
+
+  gameLoaded = false; // force a fresh instantiate next time Play is pressed
+  document.getElementById("gameContainer").innerHTML = "";
 }
 
 document.getElementById("play-slope-btn").addEventListener("click", openGame);
-document.getElementById("back-to-games").addEventListener("click", closeGame);
+document.getElementById("back-to-games").addEventListener("click", stopGame);
 
 document.getElementById("fullscreen-btn").addEventListener("click", () => {
   if (stageFrame.requestFullscreen) stageFrame.requestFullscreen();
