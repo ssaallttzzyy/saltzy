@@ -30,22 +30,12 @@ const views = {
   updates: document.getElementById("view-updates")
 };
 
-let currentTab = "games"; // tracks which tab was open, so we can detect *leaving* Games
-
 function activateTab(name) {
-  // Leaving Games while a round is open? Tear the game down first so it
-  // stops capturing keyboard input (that's what was blocking chat typing).
-  if (currentTab === "games" && name !== "games" && stageView.classList.contains("active")) {
-    stopGame();
-  }
-  currentTab = name;
-
   tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
   Object.entries(views).forEach(([key, el]) => el.classList.toggle("active", key === name));
 
   if (name === "chat") {
     onChatTabOpened();
-    setTimeout(() => chatInput.focus(), 50); // belt-and-suspenders: reclaim focus
   }
 }
 
@@ -61,85 +51,48 @@ activateTab("games");
 const gameGridView = document.getElementById("game-grid-view");
 const stageView = document.getElementById("stage-view");
 const stageFrame = document.getElementById("stage-frame");
-const gameFrameHolder = document.getElementById("gameFrameHolder");
 const splash = document.getElementById("unity-splash");
 const splashFill = document.getElementById("splash-fill");
 const splashLabel = document.getElementById("splash-label");
 
-// Every game lives in its own small HTML file (play-slope.html,
-// play-newgame.html, etc.) loaded here inside an iframe. That's what makes
-// teardown reliable: removing an iframe from the DOM immediately and
-// guaranteedly kills everything running inside it — JS, WASM, audio
-// context, animation loop — with no cooperation needed from the game's
-// own code. Progress/ready state is relayed back up via postMessage.
-//
-// To add another game: add a new .game-card in index.html with a
-// .play-game-btn button carrying data-entry="your-file.html" and
-// data-label="Your Game Name" — no changes needed here.
-let gameFrame = null;
+let gameInstance = null;
 let gameLoaded = false;
-let activeLabel = "";
 
-function openGame(entryUrl, label) {
-  activeLabel = label || "Game";
+function openGame() {
   gameGridView.style.display = "none";
   stageView.classList.add("active");
-
-  if (gameLoaded) return; // already running — just re-show
-
   splash.classList.remove("hidden");
   splashFill.style.width = "0%";
-  splashLabel.textContent = "Loading " + activeLabel + "\u2026";
+  splashLabel.textContent = "Loading Slope\u2026";
 
-  gameFrame = document.createElement("iframe");
-  gameFrame.title = activeLabel;
-  gameFrame.src = entryUrl;
-  gameFrame.setAttribute("allow", "autoplay");
-  gameFrame.style.cssText = "width:100%; height:100%; border:0; display:block;";
-  gameFrameHolder.appendChild(gameFrame);
+  if (gameLoaded) return; // already instantiated once — just re-show
+
+  gameInstance = UnityLoader.instantiate("gameContainer", "Build/slope.json", {
+    onProgress: function (instance, progress) {
+      const pct = Math.round(progress * 100);
+      splashFill.style.width = pct + "%";
+      splashLabel.textContent = pct < 100 ? "Loading Slope\u2026 " + pct + "%" : "Starting\u2026";
+      if (progress >= 1) {
+        splash.classList.add("hidden");
+      }
+    },
+    Module: {
+      onRuntimeInitialized: function () {
+        splash.classList.add("hidden");
+      }
+    }
+  });
 
   gameLoaded = true;
 }
 
-window.addEventListener("message", event => {
-  if (event.origin !== window.location.origin) return;
-  if (!gameFrame || event.source !== gameFrame.contentWindow) return;
-  const data = event.data || {};
-
-  if (data.type === "progress") {
-    const pct = Math.round((data.progress || 0) * 100);
-    splashFill.style.width = pct + "%";
-    splashLabel.textContent = pct < 100 ? "Loading " + activeLabel + "\u2026 " + pct + "%" : "Starting\u2026";
-  } else if (data.type === "ready") {
-    splash.classList.add("hidden");
-  }
-});
-
-// Fully tears the game down — used by Back to Games AND by activateTab()
-// whenever someone switches to Chat/Updates while a round is still open.
-// Removing the iframe (rather than just hiding the stage) is what fixes
-// both bugs at once: it stops the music/audio immediately, and it releases
-// whatever kept swallowing keyboard input so chat can be typed into again.
-function stopGame() {
+function closeGame() {
   stageView.classList.remove("active");
   gameGridView.style.display = "";
-
-  if (document.activeElement && document.activeElement.blur) {
-    document.activeElement.blur();
-  }
-
-  if (gameFrame) {
-    gameFrame.remove();
-    gameFrame = null;
-  }
-
-  gameLoaded = false; // force a fresh load next time Play is pressed
 }
 
-document.querySelectorAll(".play-game-btn").forEach(btn => {
-  btn.addEventListener("click", () => openGame(btn.dataset.entry, btn.dataset.label));
-});
-document.getElementById("back-to-games").addEventListener("click", stopGame);
+document.getElementById("play-slope-btn").addEventListener("click", openGame);
+document.getElementById("back-to-games").addEventListener("click", closeGame);
 
 document.getElementById("fullscreen-btn").addEventListener("click", () => {
   if (stageFrame.requestFullscreen) stageFrame.requestFullscreen();
